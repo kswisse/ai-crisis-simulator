@@ -2,11 +2,11 @@ import os
 import uuid
 from fastapi import FastAPI
 from pydantic import BaseModel
-from google.cloud import firestore
 import google.generativeai as genai
 
 app = FastAPI()
 
+# Validate API key
 api_key = os.getenv("GEMINI_API_KEY")
 if not api_key:
     raise ValueError("Missing GEMINI_API_KEY")
@@ -14,7 +14,8 @@ if not api_key:
 genai.configure(api_key=api_key)
 model = genai.GenerativeModel("gemini-1.5-pro")
 
-db = firestore.Client()
+# In-memory state store
+fake_db = {}
 
 class DecisionRequest(BaseModel):
     session_id: str | None = None
@@ -23,11 +24,10 @@ class DecisionRequest(BaseModel):
 @app.post("/decision")
 def process_decision(data: DecisionRequest):
     session_id = data.session_id or str(uuid.uuid4())
-    session_ref = db.collection("sessions").document(session_id)
-    session = session_ref.get()
 
-    if session.exists:
-        state = session.to_dict()
+    # Load or initialize state
+    if session_id in fake_db:
+        state = fake_db[session_id]
     else:
         state = {
             "risk_level": 50,
@@ -39,7 +39,7 @@ def process_decision(data: DecisionRequest):
     You are a crisis simulation engine.
     Current state: {state}
     User decision: {data.user_input}
-    Update the crisis state realistically.
+    Update the crisis state realistically and explain impact.
     """
 
     try:
@@ -48,11 +48,12 @@ def process_decision(data: DecisionRequest):
     except Exception as e:
         return {"error": str(e)}
 
+    # Simple deterministic update logic
     state["risk_level"] += 10
     state["financial_impact"] += 50000
     state["public_trust"] -= 5
 
-    session_ref.set(state)
+    fake_db[session_id] = state
 
     return {
         "session_id": session_id,
