@@ -1,13 +1,24 @@
 # AI Crisis Simulator
 
-Real-time multimodal AI crisis simulation platform powered by Gemini Live API and Google Cloud. Enables leaders to stress-test high-stakes decisions through live voice interaction and persistent state tracking.
+Local FastAPI decision endpoint for crisis-response policy exploration: POST a decision, get back updated crisis state plus a Gemini-generated explanation of its impact. Runs on your machine — nothing here is deployed to any cloud platform.
+
+## Status
+
+Early prototype: original development = 5 commits, all dated 2026-02-22 (README claims corrected 2026-10-06). Only the architecture below is implemented; everything in Roadmap is not.
 
 ## Architecture
 
-Client (Web / Voice UI)  
-→ Cloud Run (FastAPI backend)  
-→ Gemini Live API  
-→ Firestore (state persistence)
+- `main.py` — FastAPI app with a single `POST /decision` endpoint
+- State is an in-memory dict (`fake_db`) keyed by `session_id`; it resets when the server restarts
+- `google-generativeai` (`gemini-1.5-pro`) generates the `ai_response` text; requires the `GEMINI_API_KEY` env var, and the app refuses to start without it
+- State updates are deterministic per decision: risk +10, financial impact +50000, public trust −5
+
+## Roadmap (not implemented)
+
+- [ ] Cloud Run deployment
+- [ ] Gemini Live API voice interaction
+- [ ] Firestore state persistence
+- [ ] Vertex AI hosting
 
 ## Reproducible Testing
 
@@ -18,15 +29,16 @@ python -m venv venv
 venv\Scripts\activate
 
 ### 3. Install dependencies
-pip install fastapi uvicorn
+pip install -r requirements.txt google-generativeai
 
-### 4. Run server
+### 4. Set the API key (PowerShell)
+$env:GEMINI_API_KEY = "your-key"
+
+### 5. Run server
 uvicorn main:app --reload
 
-### 5. Test API
-curl -X POST "http://127.0.0.1:8000/decision" ^
--H "Content-Type: application/json" ^
--d "{\"choice\":\"option_a\"}"
+### 6. Test API
+curl -X POST "http://127.0.0.1:8000/decision" -H "Content-Type: application/json" -d "{\"user_input\":\"option_a\"}"
 
 ### Expected JSON response
 {
@@ -38,3 +50,7 @@ curl -X POST "http://127.0.0.1:8000/decision" ^
   },
   "ai_response": "AI explanation of the decision impact..."
 }
+
+## License
+
+MIT — see [LICENSE](LICENSE).
